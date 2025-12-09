@@ -1,0 +1,10 @@
+out
+dist
+node_modules
+.vscode-test/
+*.vsix
+.DS_Store
+package-lock.json
+__pycache__/
+.vscode
+private_examples

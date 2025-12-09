@@ -1,0 +1,86 @@
+{
+  "name": "vscode-copilot-as-service",
+  "displayName": "VS Code Copilot as Service",
+  "description": "Expose GitHub Copilot as an HTTP server for external applications",
+  "version": "0.1.0",
+  "publisher": "MartyZhou",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MartyZhou/vscode-copilot-as-service.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Chat",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vscode-copilot-as-service.start",
+        "title": "Start Copilot HTTP Server"
+      },
+      {
+        "command": "vscode-copilot-as-service.stop",
+        "title": "Stop Copilot HTTP Server"
+      },
+      {
+        "command": "vscode-copilot-as-service.restart",
+        "title": "Restart Copilot HTTP Server"
+      }
+    ],
+    "configuration": {
+      "title": "Copilot as Service",
+      "properties": {
+        "copilotAsService.port": {
+          "type": "number",
+          "default": 8765,
+          "description": "Port number for the HTTP server"
+        },
+        "copilotAsService.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "enum": [
+            "gpt-4o",
+            "gpt-4o-mini",
+            "claude-3.5-sonnet",
+            "o1-preview",
+            "o1-mini"
+          ],
+          "description": "Default Copilot model to use"
+        },
+        "copilotAsService.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start the server when VS Code opens"
+        },
+        "copilotAsService.includeWorkspaceContext": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include workspace context (active files, open editors) in API requests by default"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "pack": "vsce package",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  }
+}
