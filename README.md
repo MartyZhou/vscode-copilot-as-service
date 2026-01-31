@@ -1,7 +1,8 @@
 # VS Code Copilot as Service
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Extension-blue.svg)](https://marketplace.visualstudio.com/)
+[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/MartyZhou.vscode-copilot-as-service?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=MartyZhou.vscode-copilot-as-service)
+[![Install](https://img.shields.io/visual-studio-marketplace/i/MartyZhou.vscode-copilot-as-service)](https://marketplace.visualstudio.com/items?itemName=MartyZhou.vscode-copilot-as-service)
 
 **Expose GitHub Copilot as an OpenAI-compatible HTTP API server from within VS Code.**
 
@@ -21,9 +22,22 @@ This VS Code extension starts an HTTP server that provides programmatic access t
 
 ### Installation
 
-1. Install the extension from VS Code Marketplace or from `.vsix` file
-2. Ensure you have an active GitHub Copilot subscription
-3. The HTTP server starts automatically on port `8765`
+**[Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=MartyZhou.vscode-copilot-as-service)**
+
+Or install directly from VS Code:
+1. Open VS Code
+2. Press `Ctrl+Shift+X` (Windows/Linux) or `Cmd+Shift+X` (Mac) to open Extensions
+3. Search for "Copilot as Service"
+4. Click Install
+
+Alternatively, install via command line:
+```bash
+code --install-extension MartyZhou.vscode-copilot-as-service
+```
+
+**Requirements:**
+- Active GitHub Copilot subscription
+- The HTTP server starts automatically on port `8765` after installation
 
 ### Basic Usage
 

@@ -2,8 +2,9 @@
   "name": "vscode-copilot-as-service",
   "displayName": "VS Code Copilot as Service",
   "description": "Expose GitHub Copilot as an OpenAI-compatible HTTP API server for external applications",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "MartyZhou",
+  "icon": "icon.png",
   "keywords": [
     "copilot",
     "github-copilot",
