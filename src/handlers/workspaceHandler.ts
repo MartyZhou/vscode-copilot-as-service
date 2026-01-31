@@ -220,3 +220,114 @@ export async function openFileInEditor(filePath: string, line?: number): Promise
         return false;
     }
 }
+
+/**
+ * Read a file's content, optionally with line range
+ */
+export async function readFileContent(
+    filePath: string, 
+    startLine?: number, 
+    endLine?: number
+): Promise<{ content: string; totalLines: number; language: string }> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        throw new Error('No workspace folder open');
+    }
+    
+    let fileUri: vscode.Uri;
+    if (filePath.startsWith('/') || filePath.includes(':')) {
+        fileUri = vscode.Uri.file(filePath);
+    } else {
+        fileUri = vscode.Uri.joinPath(workspaceFolders[0].uri, filePath);
+    }
+    
+    const fileContent = await vscode.workspace.fs.readFile(fileUri);
+    const textContent = Buffer.from(fileContent).toString('utf8');
+    const lines = textContent.split('\n');
+    const totalLines = lines.length;
+    
+    // Detect language from file extension
+    const ext = filePath.split('.').pop() || 'txt';
+    const languageMap: Record<string, string> = {
+        'py': 'python',
+        'js': 'javascript',
+        'ts': 'typescript',
+        'json': 'json',
+        'md': 'markdown',
+        'html': 'html',
+        'css': 'css',
+        'java': 'java',
+        'rb': 'ruby',
+        'go': 'go',
+        'rs': 'rust',
+        'cpp': 'cpp',
+        'c': 'c',
+        'cs': 'csharp'
+    };
+    const language = languageMap[ext] || ext;
+    
+    if (startLine !== undefined && endLine !== undefined) {
+        // Return specific line range (1-indexed)
+        const start = Math.max(0, startLine - 1);
+        const end = Math.min(lines.length, endLine);
+        return {
+            content: lines.slice(start, end).join('\n'),
+            totalLines,
+            language
+        };
+    }
+    
+    return { content: textContent, totalLines, language };
+}
+
+/**
+ * Edit a file by replacing text
+ */
+export async function editFile(
+    filePath: string,
+    replacements: Array<{ oldString: string; newString: string }>
+): Promise<{ success: boolean; replacementsMade: number; errors: string[] }> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        throw new Error('No workspace folder open');
+    }
+    
+    let fileUri: vscode.Uri;
+    if (filePath.startsWith('/') || filePath.includes(':')) {
+        fileUri = vscode.Uri.file(filePath);
+    } else {
+        fileUri = vscode.Uri.joinPath(workspaceFolders[0].uri, filePath);
+    }
+    
+    // Read current content
+    const fileContent = await vscode.workspace.fs.readFile(fileUri);
+    let textContent = Buffer.from(fileContent).toString('utf8');
+    
+    let replacementsMade = 0;
+    const errors: string[] = [];
+    
+    for (const { oldString, newString } of replacements) {
+        if (!textContent.includes(oldString)) {
+            errors.push(`Could not find text to replace: "${oldString.substring(0, 50)}..."`);
+            continue;
+        }
+        
+        // Replace first occurrence only for safety
+        textContent = textContent.replace(oldString, newString);
+        replacementsMade++;
+        console.log(`[Copilot Service] Replaced in ${filePath}: "${oldString.substring(0, 30)}..." -> "${newString.substring(0, 30)}..."`);
+    }
+    
+    if (replacementsMade > 0) {
+        // Write the modified content back
+        const encoder = new TextEncoder();
+        await vscode.workspace.fs.writeFile(fileUri, encoder.encode(textContent));
+        console.log(`[Copilot Service] Saved ${filePath} with ${replacementsMade} replacement(s)`);
+    }
+    
+    return {
+        success: replacementsMade > 0,
+        replacementsMade,
+        errors
+    };
+}

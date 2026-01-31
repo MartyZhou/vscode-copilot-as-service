@@ -51,3 +51,19 @@ export interface WorkspaceSearchRequest {
     filePattern?: string;
     maxResults?: number;
 }
+
+export interface FileEditRequest {
+    filePath: string;
+    oldString?: string;
+    newString?: string;
+    replacements?: Array<{
+        oldString: string;
+        newString: string;
+    }>;
+}
+
+export interface FileReadRequest {
+    filePath: string;
+    startLine?: number;
+    endLine?: number;
+}

@@ -7,7 +7,9 @@ import {
     handleToolInvoke,
     handleFileOpen,
     handleWorkspaceSearch,
-    handleHealth
+    handleHealth,
+    handleFileEdit,
+    handleFileRead
 } from './routes';
 
 let server: http.Server | undefined;
@@ -98,6 +100,10 @@ function startServer(): void {
             await handleFileOpen(req, res);
         } else if (req.method === 'POST' && req.url === '/v1/workspace/search') {
             await handleWorkspaceSearch(req, res);
+        } else if (req.method === 'POST' && req.url === '/v1/workspace/files/edit') {
+            await handleFileEdit(req, res);
+        } else if (req.method === 'POST' && req.url === '/v1/workspace/files/read') {
+            await handleFileRead(req, res);
         } else {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Not found' }));

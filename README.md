@@ -7,17 +7,17 @@
 
 This VS Code extension starts an HTTP server that provides programmatic access to GitHub Copilot's language models through an OpenAI-compatible REST API. Perfect for integrating Copilot into external applications, scripts, or CI/CD pipelines while leveraging your existing Copilot subscription.
 
-## ✨ Features
+## Features
 
-- 🚀 **OpenAI-Compatible API** - Drop-in replacement for OpenAI API endpoints
-- 🛠️ **Automatic Tool Invocation** - Tools are executed automatically with results returned
-- 📁 **Workspace Integration** - Include VS Code workspace context in requests
-- 🔍 **Code Search** - Search and read files from your workspace via API
-- 📝 **File Operations** - Open files in VS Code editor from external applications
-- 🌊 **Streaming Support** - Server-Sent Events (SSE) for real-time responses
-- ⚡ **Zero Configuration** - Auto-starts with VS Code by default
+- **OpenAI-Compatible API** - Drop-in replacement for OpenAI API endpoints
+- **Automatic Tool Invocation** - Tools are executed automatically with results returned
+- **Workspace Integration** - Include VS Code workspace context in requests
+- **Code Search** - Search and read files from your workspace via API
+- **File Operations** - Open files in VS Code editor from external applications
+- **Streaming Support** - Server-Sent Events (SSE) for real-time responses
+- **Zero Configuration** - Auto-starts with VS Code by default
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -61,7 +61,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-## 📚 API Endpoints
+## API Endpoints
 
 ### Chat Completions
 
@@ -237,7 +237,7 @@ Check if the service is running.
 curl http://localhost:8765/health
 ```
 
-## 🛠️ Tool Invocation
+## Tool Invocation
 
 Tools are automatically invoked when requested by the model. The extension handles:
 
@@ -270,7 +270,7 @@ response = requests.post('http://localhost:8765/v1/chat/completions', json={
 print(response.json()['choices'][0]['message']['content'])
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 Open VS Code Settings and search for "Copilot as Service":
 
@@ -282,7 +282,7 @@ Open VS Code Settings and search for "Copilot as Service":
 | `copilotAsService.includeWorkspaceContext` | `false` | Include workspace context by default |
 
 
-## 🎮 Commands
+## Commands
 
 Access via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 
@@ -292,7 +292,7 @@ Access via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 
 The status bar shows the current server state and port. Click to restart.
 
-## 📝 Examples
+## Examples
 
 ### Python Client
 
@@ -368,7 +368,7 @@ data = response.json()['choices'][0]['message']['content']
 parsed = json.loads(data)
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 The extension is organized into modular components:
 
@@ -384,8 +384,6 @@ src/
     └── workspaceHandler.ts   # Workspace & file operations
 ```
 
-See [`src/README.md`](src/README.md) for detailed architecture documentation.
-
 ### Request Flow
 
 1. HTTP request received by server in `extension.ts`
@@ -397,7 +395,7 @@ See [`src/README.md`](src/README.md) for detailed architecture documentation.
 7. Tool invocation (if needed) executes and collects results
 8. HTTP response sent back to client
 
-## 🔒 Security Considerations
+## Security Considerations
 
 - **Local Only**: Server binds to `localhost` by default (not exposed externally)
 - **No Authentication**: Assumes trusted local environment
@@ -406,7 +404,7 @@ See [`src/README.md`](src/README.md) for detailed architecture documentation.
 - **Workspace Access**: API can access all files in open workspace
 
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Server Won't Start
 
@@ -431,7 +429,7 @@ Ensure your GitHub Copilot subscription includes the requested model. Use `/v1/m
 - Check `includeWorkspaceContext` is `true`
 - Verify files are accessible (not binary/too large)
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.
 
@@ -458,21 +456,17 @@ npm run watch
 npm run pack
 ```
 
-### Project Structure
-
-See [`src/README.md`](src/README.md) for detailed code organization and architecture documentation.
-
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built on top of the [VS Code Language Model API](https://code.visualstudio.com/api/extension-guides/language-model)
 - Inspired by the need to integrate GitHub Copilot with external tools and workflows
 - Thanks to the VS Code and GitHub Copilot teams for their excellent APIs
 
-## 📞 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/MartyZhou/vscode-copilot-as-service/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/MartyZhou/vscode-copilot-as-service/discussions)

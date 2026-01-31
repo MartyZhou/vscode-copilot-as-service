@@ -1,13 +1,13 @@
 # GitHub Copilot Instructions
 
-This file provides coding standards and best practices for contributing to the this codebase.
+This file provides coding standards and best practices for contributing to the VS Code Copilot as Service extension codebase.
 
 ## General Guidelines
 
 - **Zero Lint Errors**: All changes must pass `npm run lint` without errors or warnings
 - **TypeScript Best Practices**: Follow strict TypeScript conventions
-- **Unit Tests**: Do not break existing tests; ensure `npm run test` passes
 - **Build Success**: All code must compile successfully with `npm run compile`
+- **Professional Code**: No emojis in code, documentation, or user-facing messages
 
 ## TypeScript Standards
 
@@ -23,14 +23,13 @@ This file provides coding standards and best practices for contributing to the t
 - No trailing whitespace in files
 - Use meaningful variable and function names
 - Keep functions focused and concise
+- No emojis in code or user messages
+- Professional, clear error messages
 
 ## Testing Requirements
 
-
 - Run tests before committing: `npm run test`
-- Update tests when modifying functionality
-- Add tests for new features when appropriate
-- Ensure integration tests pass
+- Ensure code compiles without errors
 
 ## File Operations
 
@@ -50,18 +49,35 @@ This file provides coding standards and best practices for contributing to the t
 
 1. Run `npm run lint` - must pass with zero errors
 2. Run `npm run compile` - must compile successfully
-3. Run `npm run test` - all tests must pass
-4. Review changes for TypeScript best practices
-5. Ensure no unused code or imports remain
-6. Verify functionality works as expected
+3. Review changes for TypeScript best practices
+4. Ensure no unused code or imports remain
+5. Verify functionality works as expected
+6. No emojis or unprofessional content
 
 ## Common Patterns in This Codebase
 
 - Use `vscode` namespace for VS Code APIs
-- Follow the existing project structure
+- Follow the existing project structure (extension.ts, routes.ts, handlers/)
 - Maintain backward compatibility when possible
-- Use the test model (`TestModel`) for test management
+- Use modular handler pattern for new endpoints
 - Follow the existing command registration patterns
+- All user-facing messages should be professional and clear
+
+## HTTP API Patterns
+
+- All endpoints should follow OpenAI-compatible patterns where applicable
+- ErroBuild succeeds
+- [ ] No console.log statements left behind (use proper logging)
+- [ ] Error handling implemented
+- [ ] Resources properly disposed
+- [ ] Documentation updated if needed
+- [ ] No emojis in code or messages
+- [ ] Professional and clear user communication
+
+- Server should start automatically if `autoStart` is enabled
+- Status bar should reflect current server state
+- Handle configuration changes gracefully
+- Clean up resources on deactivation
 
 ## Code Review Checklist
 

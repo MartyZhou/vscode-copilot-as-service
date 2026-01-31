@@ -3,6 +3,14 @@
 src/**
 .gitignore
 .eslintrc.json
+.git/**
+.github/**
 **/*.map
 **/*.ts
 tsconfig.json
+node_modules/**
+clients/**
+private_examples/**
+.venv/**
+__pycache__/**
+package-lock.json

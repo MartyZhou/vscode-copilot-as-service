@@ -3,11 +3,11 @@
  */
 import * as vscode from 'vscode';
 import * as http from 'http';
-import { ChatCompletionRequest, ToolInvokeRequest, FileOpenRequest, WorkspaceSearchRequest } from './types';
+import { ChatCompletionRequest, ToolInvokeRequest, FileOpenRequest, WorkspaceSearchRequest, FileEditRequest, FileReadRequest } from './types';
 import { handleStreamingResponse, handleNonStreamingResponse } from './handlers/responseHandler';
 import { prepareToolsForRequest, mapToolChoice, listTools, invokeTool } from './handlers/toolHandler';
 import { prepareChatMessages } from './handlers/messageHandler';
-import { openFileInEditor, searchWorkspaceCode } from './handlers/workspaceHandler';
+import { openFileInEditor, searchWorkspaceCode, editFile, readFileContent } from './handlers/workspaceHandler';
 
 /**
  * Handle chat completions request
@@ -332,6 +332,115 @@ export async function handleWorkspaceSearch(req: http.IncomingMessage, res: http
 export function handleHealth(_req: http.IncomingMessage, res: http.ServerResponse): void {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ status: 'ok' }));
+}
+
+/**
+ * Handle file edit request - edit files by replacing text
+ */
+export async function handleFileEdit(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    try {
+        const body = await readRequestBody(req);
+        const requestData: FileEditRequest = JSON.parse(body);
+        
+        const filePath = requestData.filePath;
+        
+        if (!filePath) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: {
+                    message: 'filePath is required',
+                    type: 'invalid_request_error',
+                    code: 'missing_parameter'
+                }
+            }));
+            return;
+        }
+        
+        // Build replacements array
+        const replacements: Array<{ oldString: string; newString: string }> = [];
+        
+        if (requestData.replacements && requestData.replacements.length > 0) {
+            replacements.push(...requestData.replacements);
+        } else if (requestData.oldString !== undefined && requestData.newString !== undefined) {
+            replacements.push({
+                oldString: requestData.oldString,
+                newString: requestData.newString
+            });
+        }
+        
+        if (replacements.length === 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: {
+                    message: 'Either replacements array or oldString/newString is required',
+                    type: 'invalid_request_error',
+                    code: 'missing_parameter'
+                }
+            }));
+            return;
+        }
+        
+        const result = await editFile(filePath, replacements);
+        
+        res.writeHead(result.success ? 200 : 400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            ...result,
+            filePath
+        }));
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            error: {
+                message: errorMessage,
+                type: 'file_edit_error',
+                code: 'file_edit_error'
+            }
+        }));
+    }
+}
+
+/**
+ * Handle file read request - read file content
+ */
+export async function handleFileRead(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    try {
+        const body = await readRequestBody(req);
+        const requestData: FileReadRequest = JSON.parse(body);
+        
+        const filePath = requestData.filePath;
+        
+        if (!filePath) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: {
+                    message: 'filePath is required',
+                    type: 'invalid_request_error',
+                    code: 'missing_parameter'
+                }
+            }));
+            return;
+        }
+        
+        const result = await readFileContent(filePath, requestData.startLine, requestData.endLine);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            filePath,
+            ...result,
+            success: true
+        }));
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            error: {
+                message: errorMessage,
+                type: 'file_read_error',
+                code: 'file_read_error'
+            }
+        }));
+    }
 }
 
 /**

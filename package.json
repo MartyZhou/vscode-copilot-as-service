@@ -1,13 +1,27 @@
 {
   "name": "vscode-copilot-as-service",
   "displayName": "VS Code Copilot as Service",
-  "description": "Expose GitHub Copilot as an HTTP server for external applications",
-  "version": "0.1.0",
+  "description": "Expose GitHub Copilot as an OpenAI-compatible HTTP API server for external applications",
+  "version": "0.1.1",
   "publisher": "MartyZhou",
+  "keywords": [
+    "copilot",
+    "github-copilot",
+    "api",
+    "openai",
+    "rest-api",
+    "http-server",
+    "ai",
+    "llm"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/MartyZhou/vscode-copilot-as-service.git"
   },
+  "bugs": {
+    "url": "https://github.com/MartyZhou/vscode-copilot-as-service/issues"
+  },
+  "homepage": "https://github.com/MartyZhou/vscode-copilot-as-service#readme",
   "license": "MIT",
   "engines": {
     "vscode": "^1.85.0"
