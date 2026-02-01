@@ -405,7 +405,7 @@ code --install-extension MartyZhou.vscode-copilot-as-service
 from selenium import webdriver
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selector_autocorrect import install_auto_correct_hook
+from selenium_selector_autocorrect.wait_hook import install_auto_correct_hook
 
 # Enable auto-correction with local Copilot service
 install_auto_correct_hook()
