@@ -382,6 +382,45 @@ data = response.json()['choices'][0]['message']['content']
 parsed = json.loads(data)
 ```
 
+## Use Cases
+
+### Automated Test Fixing with selenium-selector-autocorrect
+
+The **[selenium-selector-autocorrect](https://pypi.org/project/selenium-selector-autocorrect/)** package uses this extension to automatically fix broken Selenium test selectors when they fail. When a WebDriverWait times out, it:
+
+1. Captures page context and failed selector
+2. Sends request to the local Copilot API
+3. Receives AI-suggested alternative selectors
+4. Tests the new selector automatically
+5. Optionally updates test files with corrections
+
+**Installation:**
+```bash
+pip install selenium-selector-autocorrect
+code --install-extension MartyZhou.vscode-copilot-as-service
+```
+
+**Usage:**
+```python
+from selenium import webdriver
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selector_autocorrect import install_auto_correct_hook
+
+# Enable auto-correction with local Copilot service
+install_auto_correct_hook()
+
+driver = webdriver.Chrome()
+driver.get("https://example.com")
+
+# If selector fails, AI suggests alternatives automatically
+element = WebDriverWait(driver, 10).until(
+    EC.presence_of_element_located((By.ID, "old-element-id"))
+)
+```
+
+This integration demonstrates how the local Copilot API can enhance development workflows by providing intelligent assistance when automated processes encounter issues.
+
 ## Architecture
 
 The extension is organized into modular components:
