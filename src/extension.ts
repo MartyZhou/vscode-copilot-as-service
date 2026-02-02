@@ -9,11 +9,58 @@ import {
     handleWorkspaceSearch,
     handleHealth,
     handleFileEdit,
-    handleFileRead
+    handleFileRead,
+    handleFileAdd,
+    getAvailableModelFamilies
 } from './routes';
 
 let server: http.Server | undefined;
 let statusBarItem: vscode.StatusBarItem;
+
+/**
+ * Command to select model from user's subscription
+ */
+async function selectModelCommand(): Promise<void> {
+    try {
+        const models = await getAvailableModelFamilies();
+        
+        if (models.length === 0) {
+            vscode.window.showErrorMessage(
+                'No models available. Make sure GitHub Copilot is enabled and you have an active subscription.'
+            );
+            return;
+        }
+
+        const currentConfig = vscode.workspace.getConfiguration('copilotAsService');
+        const currentModel = currentConfig.get<string>('model', 'gpt-5-mini');
+
+        const quickPickItems = models.map(model => ({
+            label: model,
+            description: model === currentModel ? '(Currently selected)' : '',
+            picked: model === currentModel
+        }));
+
+        const selected = await vscode.window.showQuickPick(quickPickItems, {
+            placeHolder: 'Select a model from your GitHub Copilot subscription',
+            matchOnDescription: true
+        });
+
+        if (selected) {
+            await currentConfig.update('model', selected.label, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage(
+                `Copilot model set to: ${selected.label}. Restart the server to apply changes.`,
+                'Restart'
+            ).then((action: string | undefined) => {
+                if (action === 'Restart') {
+                    vscode.commands.executeCommand('vscode-copilot-as-service.restart');
+                }
+            });
+        }
+    } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        vscode.window.showErrorMessage(`Failed to fetch available models: ${errorMessage}`);
+    }
+}
 
 export function activate(context: vscode.ExtensionContext): void {
     // Create status bar item
@@ -34,6 +81,12 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('vscode-copilot-as-service.restart', () => {
             stopServer();
             startServer();
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('vscode-copilot-as-service.selectModel', async () => {
+            await selectModelCommand();
         })
     );
 
@@ -98,7 +151,9 @@ function startServer(): void {
             await handleToolInvoke(req, res);
         } else if (req.method === 'POST' && req.url === '/v1/workspace/files/open') {
             await handleFileOpen(req, res);
-        } else if (req.method === 'POST' && req.url === '/v1/workspace/search') {
+        } else if (req.method === 'POST' && req.url === '/v1/workspace/files/add') {
+            await handleFileAdd(req, res);
+        } else if (req.method === 'POST' && req.url === '/v1/workspace/files/search') {
             await handleWorkspaceSearch(req, res);
         } else if (req.method === 'POST' && req.url === '/v1/workspace/files/edit') {
             await handleFileEdit(req, res);

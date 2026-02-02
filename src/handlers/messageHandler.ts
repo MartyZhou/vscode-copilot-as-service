@@ -14,6 +14,7 @@ export interface MessagePreparationOptions {
         filePattern?: string;
         maxResults?: number;
     };
+    fileOperationResult?: string;
 }
 
 /**
@@ -72,6 +73,12 @@ export async function prepareChatMessages(options: MessagePreparationOptions): P
             chatMessages.push(vscode.LanguageModelChatMessage.User(searchResults));
             console.log('[Copilot Service] Added code search results');
         }
+    }
+
+    // Add file operation result if provided
+    if (options.fileOperationResult) {
+        chatMessages.push(vscode.LanguageModelChatMessage.User(options.fileOperationResult));
+        console.log('[Copilot Service] Added file operation result');
     }
 
     // Convert and add user/assistant messages

@@ -44,7 +44,7 @@ if __name__ == "__main__":
     ]
     response = chat_completion(
         messages, 
-        model="gpt-4o",
+        model="gpt-5-mini",
         include_workspace_context=True,
         justification="Project analysis via Python API"
     )

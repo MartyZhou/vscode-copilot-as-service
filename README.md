@@ -2,254 +2,199 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/MartyZhou.vscode-copilot-as-service?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=MartyZhou.vscode-copilot-as-service)
-[![Install](https://img.shields.io/visual-studio-marketplace/i/MartyZhou.vscode-copilot-as-service)](https://marketplace.visualstudio.com/items?itemName=MartyZhou.vscode-copilot-as-service)
 
-**Expose GitHub Copilot as an OpenAI-compatible HTTP API server from within VS Code.**
+**Expose GitHub Copilot as an OpenAI-compatible HTTP API with intelligent file operations and workflow suggestions.**
 
-This VS Code extension starts an HTTP server that provides programmatic access to GitHub Copilot's language models through an OpenAI-compatible REST API. Perfect for integrating Copilot into external applications, scripts, or CI/CD pipelines while leveraging your existing Copilot subscription.
+This VS Code extension provides programmatic access to GitHub Copilot through a REST API, with built-in file operations and AI-powered workflow suggestions for uninterrupted development.
 
-## Features
+## Key Features
 
-- **OpenAI-Compatible API** - Drop-in replacement for OpenAI API endpoints
-- **Automatic Tool Invocation** - Tools are executed automatically with results returned
-- **Workspace Integration** - Include VS Code workspace context in requests
-- **Code Search** - Search and read files from your workspace via API
-- **File Operations** - Open files in VS Code editor from external applications
-- **Streaming Support** - Server-Sent Events (SSE) for real-time responses
-- **Zero Configuration** - Auto-starts with VS Code by default
+- **OpenAI-Compatible API** - Drop-in replacement for OpenAI endpoints
+- **Integrated File Operations** - Read, edit, search, and open files through chat
+- **Workflow Suggestions** - AI suggests next logical actions automatically
+- **Automatic Tool Invocation** - Tools execute automatically with results
+- **Workspace Integration** - Include VS Code context in requests
+- **Zero Configuration** - Auto-starts on port 8765
 
 ## Quick Start
 
 ### Installation
 
-**[Install from VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=MartyZhou.vscode-copilot-as-service)**
+Install from [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=MartyZhou.vscode-copilot-as-service) or:
 
-Or install directly from VS Code:
-1. Open VS Code
-2. Press `Ctrl+Shift+X` (Windows/Linux) or `Cmd+Shift+X` (Mac) to open Extensions
-3. Search for "Copilot as Service"
-4. Click Install
-
-Alternatively, install via command line:
 ```bash
 code --install-extension MartyZhou.vscode-copilot-as-service
 ```
 
-**Requirements:**
-- Active GitHub Copilot subscription
-- The HTTP server starts automatically on port `8765` after installation
+**Requirements:** Active GitHub Copilot subscription
 
 ### Basic Usage
 
 ```python
 import requests
 
-# Simple chat completion
+# Chat with file operations
 response = requests.post('http://localhost:8765/v1/chat/completions', json={
-    'model': 'gpt-4o-mini',
-    'messages': [
-        {'role': 'user', 'content': 'Hello, Copilot!'}
-    ]
+    'messages': [{'role': 'user', 'content': 'Explain this file'}],
+    'fileOperation': {'type': 'read', 'filePath': 'src/extension.ts'},
+    'suggestNextActions': True  # Get workflow suggestions
 })
 
-print(response.json()['choices'][0]['message']['content'])
+result = response.json()
+print(result['choices'][0]['message']['content'])
+
+# Execute suggested next action
+if 'suggested_actions' in result:
+    next_action = result['suggested_actions'][0]
+    print(f"Suggested: {next_action['description']}")
 ```
 
-### Using with OpenAI SDK
+## Key Capabilities
+
+### 1. File Operations
+
+Perform file operations directly through chat:
 
 ```python
-from openai import OpenAI
+# Read file
+{'fileOperation': {'type': 'read', 'filePath': 'src/file.ts'}}
 
-client = OpenAI(
-    api_key='not-needed',
-    base_url='http://localhost:8765/v1'
-)
+# Search workspace
+{'fileOperation': {'type': 'search', 'query': 'error handling'}}
 
-response = client.chat.completions.create(
-    model='gpt-4o-mini',
-    messages=[
-        {'role': 'user', 'content': 'Explain recursion in simple terms'}
-    ]
-)
+# Edit file
+{'fileOperation': {'type': 'edit', 'filePath': 'config.json', 
+                   'oldString': 'old', 'newString': 'new'}}
 
-print(response.choices[0].message.content)
+# Open in editor
+{'fileOperation': {'type': 'open', 'filePath': 'README.md', 'line': 42}}
+```
+
+### 2. Workflow Suggestions
+
+Get AI-powered suggestions for next actions:
+
+```python
+response = requests.post(url, json={
+    'messages': [{'role': 'user', 'content': 'Analyze this'}],
+    'fileOperation': {'type': 'read', 'filePath': 'src/extension.ts'},
+    'suggestNextActions': True
+})
+
+# Response includes suggested_actions array
+for action in response.json()['suggested_actions']:
+    print(f"- {action['description']}: {action['reasoning']}")
+    # Each action has a ready-to-use 'request' object
+```
+
+### 3. Automated Workflows
+
+Chain suggestions for automated exploration:
+
+```python
+def auto_workflow(initial_request, steps=5):
+    request = initial_request
+    for _ in range(steps):
+        result = requests.post(url, json=request).json()
+        print(result['choices'][0]['message']['content'][:100])
+        if 'suggested_actions' not in result:
+            break
+        request = result['suggested_actions'][0]['request']
+    return result
 ```
 
 ## API Endpoints
 
-### Chat Completions
+| Endpoint | Description |
+|----------|-------------|
+| `POST /v1/chat/completions` | Main chat endpoint with file operations & suggestions |
+| `GET /v1/models` | List available models |
+| `GET /health` | Health check |
+| `POST /v1/workspace/files/read` | Read file (dedicated endpoint) |
+| `POST /v1/workspace/files/search` | Search workspace (dedicated endpoint) |
 
-**`POST /v1/chat/completions`**
+See [Complete Guide](docs/COMPLETE_GUIDE.md) for full API reference.
 
-OpenAI-compatible chat completions endpoint with extended features.
+## Testing
 
-#### Basic Request
-
-```json
-{
-  "model": "gpt-4o-mini",
-  "messages": [
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "What is TypeScript?"}
-  ],
-  "stream": false
-}
-```
-
-#### Advanced Features
-
-```json
-{
-  "model": "gpt-4o-mini",
-  "messages": [...],
-  "stream": false,
-  "includeWorkspaceContext": true,
-  "fileReads": ["src/app.ts", "package.json"],
-  "codeSearch": {
-    "query": "function calculateTotal",
-    "filePattern": "**/*.ts",
-    "maxResults": 10
-  },
-  "tools": [
-    {
-      "type": "function",
-      "function": {
-        "name": "get_weather",
-        "description": "Get current weather",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "location": {"type": "string"}
-          }
-        }
-      }
-    }
-  ],
-  "tool_choice": "auto"
-}
-```
-
-#### Extended Parameters
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `includeWorkspaceContext` | boolean | Include active files and workspace info (default: `true`) |
-| `fileReads` | string[] | Array of file paths to read and include in context |
-| `codeSearch` | object | Search workspace files for specific code patterns |
-| `tools` | array | Tool definitions (executed automatically when called) |
-| `tool_choice` | string/object | Control tool invocation (`auto`, `required`, `none`) |
-| `response_format` | object | Force JSON response (`json_object`, `json_schema`) |
-
-#### Response Format
-
-```json
-{
-  "id": "chatcmpl-1234567890",
-  "object": "chat.completion",
-  "created": 1702345678,
-  "model": "gpt-4o-mini",
-  "choices": [{
-    "index": 0,
-    "message": {
-      "role": "assistant",
-      "content": "TypeScript is a typed superset of JavaScript..."
-    },
-    "finish_reason": "stop"
-  }],
-  "usage": {
-    "prompt_tokens": -1,
-    "completion_tokens": -1,
-    "total_tokens": -1
-  }
-}
-```
-
-### Models
-
-**`GET /v1/models`**
-
-List all available Copilot models.
+Run comprehensive integration tests:
 
 ```bash
-curl http://localhost:8765/v1/models
+cd vscode-copilot-as-service
+python tests/run_all_tests.py
 ```
 
-Response:
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "copilot-gpt-4o-mini",
-      "object": "model",
-      "created": 1702345678,
-      "owned_by": "github-copilot",
-      "name": "gpt-4o-mini",
-      "family": "gpt-4o-mini",
-      "vendor": "copilot"
-    }
-  ]
-}
-```
+Tests verify all endpoints, file operations, workflow suggestions, and error handling.
 
-### Tools
+## Configuration
 
-**`GET /v1/tools`**
-
-List all available VS Code tools.
-
-```bash
-curl http://localhost:8765/v1/tools
-```
-
-**`POST /v1/tools/invoke`**
-
-Invoke a specific tool by name.
+Configure in VS Code settings (`Ctrl+,`):
 
 ```json
 {
-  "tool_name": "vscode-search",
-  "parameters": {
-    "query": "TODO",
-    "filePattern": "**/*.ts"
-  }
+  "copilotAsService.port": 8765,
+  "copilotAsService.model": "gpt-5-mini",
+  "copilotAsService.autoStart": true
 }
 ```
 
-### Workspace Operations
+Available models are fetched dynamically from your GitHub Copilot subscription. Use the `GET /v1/models` endpoint or the "Select Copilot Model from Subscription" command to view available model families.
 
-**`POST /v1/workspace/files/open`**
+## Examples
 
-Open a file in VS Code editor.
+### Code Review Workflow
 
-```json
-{
-  "filePath": "src/app.ts",
-  "line": 42
-}
+```python
+# 1. Read and analyze
+r1 = requests.post(url, json={
+    'messages': [{'role': 'user', 'content': 'Review for issues'}],
+    'fileOperation': {'type': 'read', 'filePath': 'src/routes.ts'},
+    'suggestNextActions': True
+}).json()
+
+# 2. Follow "Search for related files" suggestion
+r2 = requests.post(url, json=r1['suggested_actions'][1]['request']).json()
+
+# 3. Continue with next suggestions...
 ```
 
-**`POST /v1/workspace/search`**
+### Bug Investigation
 
-Search workspace files for code patterns.
-
-```json
-{
-  "query": "async function",
-  "filePattern": "**/*.ts",
-  "maxResults": 20
-}
+```python
+# Search for error -> Read file -> Analyze -> Fix
+def investigate(error_msg):
+    r = requests.post(url, json={
+        'messages': [{'role': 'user', 'content': f'Find: {error_msg}'}],
+        'fileOperation': {'type': 'search', 'query': error_msg},
+        'suggestNextActions': True
+    }).json()
+    
+    # Auto-execute "Read most relevant file" suggestion
+    analysis = requests.post(url, 
+        json=r['suggested_actions'][0]['request']).json()
+    
+    return analysis['choices'][0]['message']['content']
 ```
 
-### Health Check
+## Use Cases
 
-**`GET /health`**
+- **Code Analysis**: Analyze files with AI and get suggested next steps
+- **Automated Review**: Build code review bots that follow suggestions
+- **Documentation**: Generate docs by exploring codebases automatically  
+- **Bug Investigation**: Search, analyze, and trace issues systematically
+- **Learning Tool**: Explore unfamiliar codebases with AI guidance
+- **CI/CD Integration**: Integrate Copilot into automated pipelines
 
-Check if the service is running.
+## Contributing
 
-```bash
-curl http://localhost:8765/health
-```
+Issues and PRs welcome! [GitHub Repository](https://github.com/MartyZhou/vscode-copilot-as-service)
+
+## License
+
+MIT
+
+---
+
 
 ## Tool Invocation
 
@@ -268,7 +213,7 @@ Tools are automatically invoked when requested by the model. The extension handl
 import requests
 
 response = requests.post('http://localhost:8765/v1/chat/completions', json={
-    'model': 'gpt-4o-mini',
+    'model': 'gpt-5-mini',
     'messages': [
         {'role': 'user', 'content': 'Search the codebase for authentication functions'}
     ],
@@ -291,9 +236,11 @@ Open VS Code Settings and search for "Copilot as Service":
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `copilotAsService.port` | `8765` | HTTP server port |
-| `copilotAsService.model` | `gpt-4o-mini` | Default model |
+| `copilotAsService.model` | `gpt-5-mini` | Default model (dynamically loaded from your subscription) |
 | `copilotAsService.autoStart` | `true` | Auto-start server on VS Code launch |
 | `copilotAsService.includeWorkspaceContext` | `false` | Include workspace context by default |
+
+**Note**: The available models are automatically fetched from your GitHub Copilot subscription. The model setting accepts any model family available in your subscription. Use the `/v1/models` endpoint to get the list of available models.
 
 
 ## Commands
@@ -303,6 +250,7 @@ Access via Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`):
 - **Start Copilot HTTP Server** - Start the server manually
 - **Stop Copilot HTTP Server** - Stop the running server
 - **Restart Copilot HTTP Server** - Restart the server (useful after config changes)
+- **Select Copilot Model from Subscription** - Show a dropdown menu of available models from your GitHub Copilot subscription and update the setting
 
 The status bar shows the current server state and port. Click to restart.
 
@@ -343,7 +291,7 @@ chat_completion(
 ```python
 # Read specific files
 response = requests.post('http://localhost:8765/v1/chat/completions', json={
-    'model': 'gpt-4o-mini',
+    'model': 'gpt-5-mini',
     'messages': [
         {'role': 'user', 'content': 'Review these files for best practices'}
     ],
@@ -352,7 +300,7 @@ response = requests.post('http://localhost:8765/v1/chat/completions', json={
 
 # Search codebase
 response = requests.post('http://localhost:8765/v1/chat/completions', json={
-    'model': 'gpt-4o-mini',
+    'model': 'gpt-5-mini',
     'messages': [
         {'role': 'user', 'content': 'Where are the database queries?'}
     ],
@@ -368,7 +316,7 @@ response = requests.post('http://localhost:8765/v1/chat/completions', json={
 
 ```python
 response = requests.post('http://localhost:8765/v1/chat/completions', json={
-    'model': 'gpt-4o-mini',
+    'model': 'gpt-5-mini',
     'messages': [
         {'role': 'user', 'content': 'List 3 programming languages with their years'}
     ],

@@ -7,7 +7,8 @@ import { ChatCompletionRequest, ToolInvokeRequest, FileOpenRequest, WorkspaceSea
 import { handleStreamingResponse, handleNonStreamingResponse } from './handlers/responseHandler';
 import { prepareToolsForRequest, mapToolChoice, listTools, invokeTool } from './handlers/toolHandler';
 import { prepareChatMessages } from './handlers/messageHandler';
-import { openFileInEditor, searchWorkspaceCode, editFile, readFileContent } from './handlers/workspaceHandler';
+import { openFileInEditor, searchWorkspaceCode, editFile, readFileContent, addFile } from './handlers/workspaceHandler';
+import { generateNextActions, buildContextSummary } from './handlers/workflowHandler';
 
 /**
  * Handle chat completions request
@@ -18,7 +19,7 @@ export async function handleChatCompletions(req: http.IncomingMessage, res: http
         const requestData: ChatCompletionRequest = JSON.parse(body);
 
         const config = vscode.workspace.getConfiguration('copilotAsService');
-        const defaultModel = config.get<string>('model', 'gpt-4o-mini');
+        const defaultModel = config.get<string>('model', 'gpt-5-mini');
         const modelToUse = requestData.model || defaultModel;
 
         // Get available models
@@ -61,6 +62,68 @@ export async function handleChatCompletions(req: http.IncomingMessage, res: http
         console.log('[Copilot Service]   - Include workspace context:', includeWorkspaceContext);
         console.log('[Copilot Service]   - File reads:', requestData.fileReads?.length || 0);
         console.log('[Copilot Service]   - Code search:', requestData.codeSearch ? 'enabled' : 'disabled');
+        console.log('[Copilot Service]   - File operation:', requestData.fileOperation?.type || 'none');
+
+        // Handle file operations before preparing chat messages
+        let fileOperationResult: string | undefined;
+        if (requestData.fileOperation) {
+            const op = requestData.fileOperation;
+            try {
+                switch (op.type) {
+                    case 'read': {
+                        if (!op.filePath) {
+                            throw new Error('filePath is required for read operation');
+                        }
+                        const readResult = await readFileContent(op.filePath, op.startLine, op.endLine);
+                        fileOperationResult = `# File Read: ${op.filePath}\n\`\`\`${readResult.language}\n${readResult.content}\n\`\`\`\nTotal lines: ${readResult.totalLines}`;
+                        console.log('[Copilot Service] File read successful:', op.filePath);
+                        break;
+                    }
+                    
+                    case 'edit': {
+                        if (!op.filePath) {
+                            throw new Error('filePath is required for edit operation');
+                        }
+                        const replacements: Array<{ oldString: string; newString: string }> = [];
+                        if (op.replacements && op.replacements.length > 0) {
+                            replacements.push(...op.replacements);
+                        } else if (op.oldString !== undefined && op.newString !== undefined) {
+                            replacements.push({ oldString: op.oldString, newString: op.newString });
+                        } else {
+                            throw new Error('Either replacements array or oldString/newString is required');
+                        }
+                        const editResult = await editFile(op.filePath, replacements);
+                        fileOperationResult = `# File Edit: ${op.filePath}\nReplacements made: ${editResult.replacementsMade}\nSuccess: ${editResult.success}${editResult.errors.length > 0 ? '\nErrors: ' + editResult.errors.join(', ') : ''}`;
+                        console.log('[Copilot Service] File edit completed:', op.filePath, editResult);
+                        break;
+                    }
+                    
+                    case 'open': {
+                        if (!op.filePath) {
+                            throw new Error('filePath is required for open operation');
+                        }
+                        const openSuccess = await openFileInEditor(op.filePath, op.line);
+                        fileOperationResult = `# File Open: ${op.filePath}${op.line ? ` (line ${op.line})` : ''}\nSuccess: ${openSuccess}`;
+                        console.log('[Copilot Service] File open:', op.filePath, openSuccess);
+                        break;
+                    }
+                    
+                    case 'search': {
+                        if (!op.query) {
+                            throw new Error('query is required for search operation');
+                        }
+                        const searchResult = await searchWorkspaceCode(op.query, op.filePattern, op.maxResults || 20);
+                        fileOperationResult = searchResult || 'No search results';
+                        console.log('[Copilot Service] Workspace search completed:', op.query);
+                        break;
+                    }
+                }
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                fileOperationResult = `# File Operation Error\nType: ${op.type}\nError: ${errorMessage}`;
+                console.error('[Copilot Service] File operation error:', errorMessage);
+            }
+        }
 
         // Prepare chat messages
         const chatMessages = await prepareChatMessages({
@@ -68,7 +131,8 @@ export async function handleChatCompletions(req: http.IncomingMessage, res: http
             includeWorkspaceContext,
             responseFormat: requestData.response_format,
             fileReads: requestData.fileReads,
-            codeSearch: requestData.codeSearch
+            codeSearch: requestData.codeSearch,
+            fileOperationResult
         });
 
         // Prepare tools for the request
@@ -111,8 +175,20 @@ export async function handleChatCompletions(req: http.IncomingMessage, res: http
                 requestOptions
             );
             
+            // Generate suggested next actions if requested
+            const suggestedActions = generateNextActions(
+                requestData,
+                fullText,
+                requestData.fileOperation?.type,
+                requestData.fileOperation?.filePath
+            );
+
+            const contextSummary = requestData.suggestNextActions 
+                ? buildContextSummary(requestData, requestData.fileOperation?.type, requestData.fileOperation?.filePath)
+                : undefined;
+            
             // Send final response
-            const response = {
+            const response: Record<string, unknown> = {
                 id: 'chatcmpl-' + Date.now(),
                 object: 'chat.completion',
                 created: Math.floor(Date.now() / 1000),
@@ -131,6 +207,13 @@ export async function handleChatCompletions(req: http.IncomingMessage, res: http
                     total_tokens: -1
                 }
             };
+
+            // Add workflow suggestions if requested
+            if (requestData.suggestNextActions && suggestedActions.length > 0) {
+                response.suggested_actions = suggestedActions;
+                response.context_summary = contextSummary;
+                console.log('[Copilot Service] Generated', suggestedActions.length, 'suggested next actions');
+            }
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify(response));
@@ -444,7 +527,92 @@ export async function handleFileRead(req: http.IncomingMessage, res: http.Server
 }
 
 /**
- * Read request body as string
+ * Handle file add request - Add a new file to the workspace
+ */
+export async function handleFileAdd(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    try {
+        const body = await readRequestBody(req);
+        const requestData: { filePath: string; content: string; overwrite?: boolean } = JSON.parse(body);
+        
+        if (!requestData.filePath) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: {
+                    message: 'filePath is required',
+                    type: 'invalid_request',
+                    code: 'missing_parameter'
+                }
+            }));
+            return;
+        }
+        
+        if (requestData.content === undefined) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: {
+                    message: 'content is required',
+                    type: 'invalid_request',
+                    code: 'missing_parameter'
+                }
+            }));
+            return;
+        }
+        
+        const result = await addFile(
+            requestData.filePath,
+            requestData.content,
+            requestData.overwrite || false
+        );
+        
+        if (result.success) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                filePath: result.fullPath,
+                message: `File ${requestData.filePath} added successfully`
+            }));
+        } else {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: {
+                    message: result.error || 'Failed to add file',
+                    type: 'file_add_error',
+                    code: 'file_add_error'
+                }
+            }));
+        }
+    } catch (error) {
+        console.error('[Copilot Service] Error adding file:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            error: {
+                message: errorMessage,
+                type: 'file_add_error',
+                code: 'file_add_error'
+            }
+        }));
+    }
+}
+
+/** * Get available model families from the subscription
+ */
+export async function getAvailableModelFamilies(): Promise<string[]> {
+    try {
+        const models = await vscode.lm.selectChatModels();
+        const families = new Set<string>();
+        models.forEach(model => {
+            if (model.family) {
+                families.add(model.family);
+            }
+        });
+        return Array.from(families).sort();
+    } catch {
+        return [];
+    }
+}
+
+/** * Read request body as string
  */
 function readRequestBody(req: http.IncomingMessage): Promise<string> {
     return new Promise((resolve, reject) => {

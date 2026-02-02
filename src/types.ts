@@ -20,6 +20,31 @@ export interface ChatCompletionRequest {
         maxResults?: number;
     };
     justification?: string;
+    // File operations
+    fileOperation?: {
+        type: 'read' | 'edit' | 'open' | 'search';
+        filePath?: string;
+        line?: number;
+        startLine?: number;
+        endLine?: number;
+        oldString?: string;
+        newString?: string;
+        replacements?: Array<{
+            oldString: string;
+            newString: string;
+        }>;
+        query?: string;
+        filePattern?: string;
+        maxResults?: number;
+    };
+    // Workflow enhancement
+    suggestNextActions?: boolean;
+}
+
+export interface SuggestedAction {
+    description: string;
+    reasoning: string;
+    request: ChatCompletionRequest;
 }
 
 export interface OpenAITool {
@@ -60,6 +85,12 @@ export interface FileEditRequest {
         oldString: string;
         newString: string;
     }>;
+}
+
+export interface FileReadRequest {
+    filePath: string;
+    startLine?: number;
+    endLine?: number;
 }
 
 export interface FileReadRequest {

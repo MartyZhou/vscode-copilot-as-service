@@ -6,13 +6,13 @@ import json
 
 BASE_URL = "http://localhost:8765"
 
-def chat_completion(messages, model="gpt-4o-mini", stream=False, include_workspace_context=True, justification=None, tools=None):
+def chat_completion(messages, model="gpt-5-mini", stream=False, include_workspace_context=True, justification=None, tools=None):
     """
     Send a chat completion request to the Copilot service.
     
     Args:
         messages: List of message dictionaries with 'role' and 'content'
-        model: The model to use (default: gpt-4o-mini)
+        model: The model to use (default: gpt-5-mini)
         stream: Whether to stream the response (default: False)
                Note: Streaming is automatically disabled when tools are provided
         include_workspace_context: Include VS Code workspace context (default: True)
@@ -131,7 +131,7 @@ def search_workspace(query, file_pattern=None, max_results=20):
     Returns:
         Search results
     """
-    url = f"{BASE_URL}/v1/workspace/search"
+    url = f"{BASE_URL}/v1/workspace/files/search"
     payload = {
         "query": query,
         "maxResults": max_results
@@ -142,7 +142,7 @@ def search_workspace(query, file_pattern=None, max_results=20):
     response.raise_for_status()
     return response.json()
 
-def chat_with_files(messages, file_reads=None, code_search=None, model="gpt-4o-mini", include_workspace_context=False):
+def chat_with_files(messages, file_reads=None, code_search=None, model="gpt-5-mini", include_workspace_context=False):
     """
     Send a chat completion request with file content and/or code search results.
     

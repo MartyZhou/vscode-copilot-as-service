@@ -2,6 +2,7 @@
  * Workspace context and file handling utilities
  */
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 /**
  * Get workspace context information
@@ -330,4 +331,70 @@ export async function editFile(
         replacementsMade,
         errors
     };
+}
+
+/**
+ * Add a new file to the workspace
+ */
+export async function addFile(
+    filePath: string,
+    content: string,
+    overwrite: boolean = false
+): Promise<{ success: boolean; fullPath: string; error?: string }> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        return {
+            success: false,
+            fullPath: '',
+            error: 'No workspace folder open'
+        };
+    }
+    
+    let fileUri: vscode.Uri;
+    if (filePath.startsWith('/') || filePath.includes(':')) {
+        fileUri = vscode.Uri.file(filePath);
+    } else {
+        fileUri = vscode.Uri.joinPath(workspaceFolders[0].uri, filePath);
+    }
+    
+    try {
+        // Check if file exists
+        try {
+            await vscode.workspace.fs.stat(fileUri);
+            if (!overwrite) {
+                return {
+                    success: false,
+                    fullPath: fileUri.fsPath,
+                    error: 'File already exists. Set overwrite=true to replace it.'
+                };
+            }
+        } catch {
+            // File doesn't exist, which is fine for adding new file
+        }
+        
+        // Create parent directories if needed
+        const parentUri = vscode.Uri.file(path.dirname(fileUri.fsPath));
+        try {
+            await vscode.workspace.fs.createDirectory(parentUri);
+        } catch {
+            // Directory might already exist, ignore error
+        }
+        
+        // Write the file
+        const encoder = new TextEncoder();
+        await vscode.workspace.fs.writeFile(fileUri, encoder.encode(content));
+        
+        console.log(`[Copilot Service] Added file: ${fileUri.fsPath}`);
+        
+        return {
+            success: true,
+            fullPath: fileUri.fsPath
+        };
+    } catch (error) {
+        return {
+            success: false,
+            fullPath: fileUri.fsPath,
+            error: error instanceof Error ? error.message : String(error)
+        };
+    }
 }
