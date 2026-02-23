@@ -3,7 +3,7 @@
  */
 import * as vscode from 'vscode';
 import * as http from 'http';
-import { ChatCompletionRequest, ToolInvokeRequest, FileOpenRequest, WorkspaceSearchRequest, FileEditRequest, FileReadRequest } from './types';
+import { ChatCompletionRequest, ToolInvokeRequest, FileOpenRequest, WorkspaceSearchRequest, FileEditRequest, FileReadRequest, OllamaGenerateRequest, OllamaChatRequest, OllamaShowRequest } from './types';
 import { handleStreamingResponse, handleNonStreamingResponse } from './handlers/responseHandler';
 import { prepareToolsForRequest, mapToolChoice, listTools, invokeTool } from './handlers/toolHandler';
 import { prepareChatMessages } from './handlers/messageHandler';
@@ -418,6 +418,178 @@ export function handleHealth(_req: http.IncomingMessage, res: http.ServerRespons
 }
 
 /**
+ * Handle Ollama-compatible version endpoint
+ */
+export function handleOllamaVersion(_req: http.IncomingMessage, res: http.ServerResponse): void {
+    sendJson(res, 200, { version: '0.5.7' });
+}
+
+/**
+ * Handle Ollama-compatible model tags endpoint
+ */
+export async function handleOllamaTags(_req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    try {
+        const modelNames = await getAvailableOllamaModelNames();
+        sendJson(res, 200, { models: modelNames.map((name: string) => buildOllamaModelTag(name)) });
+    } catch (error) {
+        sendErrorResponse(res, 500, error, 'internal_error', 'internal_error');
+    }
+}
+
+/**
+ * Handle Ollama-compatible ps endpoint (alias of /api/tags)
+ */
+export async function handleOllamaPs(_req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    try {
+        const modelNames = await getAvailableOllamaModelNames();
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+        sendJson(res, 200, {
+            models: modelNames.map((name: string) => ({
+                ...buildOllamaModelTag(name),
+                expires_at: expiresAt,
+                size_vram: 0,
+                context_length: 8192
+            }))
+        });
+    } catch (error) {
+        sendErrorResponse(res, 500, error, 'internal_error', 'internal_error');
+    }
+}
+
+/**
+ * Handle Ollama-compatible show endpoint
+ */
+export async function handleOllamaShow(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    try {
+        const body = await readRequestBody(req);
+        const requestData: OllamaShowRequest = body ? JSON.parse(body) : {};
+        const modelName = requestData.model || requestData.name || 'gpt-5-mini';
+
+        sendJson(res, 200, {
+            parameters: 'temperature 0.7\nnum_ctx 8192',
+            license: 'See GitHub Copilot terms and model provider terms.',
+            modified_at: new Date().toISOString(),
+            template: '{{ .Prompt }}',
+            details: buildOllamaModelDetails(),
+            capabilities: ['completion'],
+            model_info: {
+                'general.architecture': 'copilot',
+                'general.name': modelName,
+                'general.parameter_count': 0,
+                'general.quantization_version': 0
+            }
+        });
+    } catch (error) {
+        sendErrorResponse(res, 500, error, 'internal_error', 'internal_error');
+    }
+}
+
+/**
+ * Handle Ollama-compatible generate endpoint
+ */
+export async function handleOllamaGenerate(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    try {
+        const body = await readRequestBody(req);
+        const requestData: OllamaGenerateRequest = JSON.parse(body);
+
+        if (!requestData.prompt || typeof requestData.prompt !== 'string') {
+            sendJson(res, 400, {
+                error: {
+                    message: 'prompt is required',
+                    type: 'invalid_request_error',
+                    code: 'missing_parameter'
+                }
+            });
+            return;
+        }
+
+        const modelName = requestData.model || 'gpt-5-mini';
+        const startedAt = process.hrtime.bigint();
+        const output = await generateTextForOllama(modelName, [{ role: 'user', content: requestData.prompt }]);
+        const totalDuration = Number(process.hrtime.bigint() - startedAt);
+        const responsePayload = {
+            model: modelName,
+            created_at: new Date().toISOString(),
+            response: output,
+            done: true,
+            done_reason: 'stop',
+            total_duration: totalDuration,
+            load_duration: 0,
+            prompt_eval_count: estimateTokenCount(requestData.prompt),
+            prompt_eval_duration: 0,
+            eval_count: estimateTokenCount(output),
+            eval_duration: 0
+        };
+
+        const shouldStream = requestData.stream !== false;
+        if (shouldStream) {
+            res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
+            res.write(`${JSON.stringify(responsePayload)}\n`);
+            res.end();
+            return;
+        }
+
+        sendJson(res, 200, responsePayload);
+    } catch (error) {
+        sendErrorResponse(res, 500, error, 'internal_error', 'internal_error');
+    }
+}
+
+/**
+ * Handle Ollama-compatible chat endpoint
+ */
+export async function handleOllamaChat(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    try {
+        const body = await readRequestBody(req);
+        const requestData: OllamaChatRequest = JSON.parse(body);
+
+        if (!Array.isArray(requestData.messages)) {
+            sendJson(res, 400, {
+                error: {
+                    message: 'messages is required and must be an array',
+                    type: 'invalid_request_error',
+                    code: 'missing_parameter'
+                }
+            });
+            return;
+        }
+
+        const modelName = requestData.model || 'gpt-5-mini';
+        const startedAt = process.hrtime.bigint();
+        const output = await generateTextForOllama(modelName, requestData.messages);
+        const totalDuration = Number(process.hrtime.bigint() - startedAt);
+        const responsePayload = {
+            model: modelName,
+            created_at: new Date().toISOString(),
+            message: {
+                role: 'assistant',
+                content: output
+            },
+            done: true,
+            done_reason: 'stop',
+            total_duration: totalDuration,
+            load_duration: 0,
+            prompt_eval_count: estimateTokenCount(requestData.messages.map((m) => m.content).join(' ')),
+            prompt_eval_duration: 0,
+            eval_count: estimateTokenCount(output),
+            eval_duration: 0
+        };
+
+        const shouldStream = requestData.stream !== false;
+        if (shouldStream) {
+            res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
+            res.write(`${JSON.stringify(responsePayload)}\n`);
+            res.end();
+            return;
+        }
+
+        sendJson(res, 200, responsePayload);
+    } catch (error) {
+        sendErrorResponse(res, 500, error, 'internal_error', 'internal_error');
+    }
+}
+
+/**
  * Handle file edit request - edit files by replacing text
  */
 export async function handleFileEdit(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
@@ -610,6 +782,112 @@ export async function getAvailableModelFamilies(): Promise<string[]> {
     } catch {
         return [];
     }
+}
+
+/**
+ * Get available model names for Ollama-compatible endpoints
+ */
+async function getAvailableOllamaModelNames(): Promise<string[]> {
+    const modelFamilies = await getAvailableModelFamilies();
+    return modelFamilies.length > 0 ? modelFamilies : ['gpt-5-mini'];
+}
+
+/**
+ * Build Ollama model details object
+ */
+function buildOllamaModelDetails(): Record<string, unknown> {
+    return {
+        parent_model: '',
+        format: 'copilot',
+        family: 'copilot',
+        families: ['copilot'],
+        parameter_size: 'unknown',
+        quantization_level: 'unknown'
+    };
+}
+
+/**
+ * Build Ollama model tag record
+ */
+function buildOllamaModelTag(name: string): Record<string, unknown> {
+    return {
+        name,
+        model: name,
+        modified_at: new Date().toISOString(),
+        size: 0,
+        digest: 'sha256:copilot-as-service',
+        details: buildOllamaModelDetails()
+    };
+}
+
+/**
+ * Rough token estimation fallback for compatibility fields
+ */
+function estimateTokenCount(text: string): number {
+    const trimmed = text.trim();
+    if (!trimmed) {
+        return 0;
+    }
+    return Math.max(1, Math.ceil(trimmed.length / 4));
+}
+
+/**
+ * Shared Ollama-compatible generation flow
+ */
+async function generateTextForOllama(modelName: string, messages: Array<{ role: string; content: string }>): Promise<string> {
+    let models = await vscode.lm.selectChatModels({
+        vendor: 'copilot',
+        family: modelName
+    });
+
+    if (models.length === 0) {
+        models = await vscode.lm.selectChatModels({ vendor: 'copilot' });
+    }
+
+    if (models.length === 0) {
+        throw new Error(`Model ${modelName} is not available`);
+    }
+
+    const model = models[0];
+    const chatMessages = await prepareChatMessages({
+        messages,
+        includeWorkspaceContext: false
+    });
+
+    const requestOptions: vscode.LanguageModelChatRequestOptions = {
+        justification: 'Ollama-compatible API request via Copilot as Service'
+    };
+
+    const chatResponse = await model.sendRequest(chatMessages, requestOptions);
+    return handleNonStreamingResponse(model, chatResponse, chatMessages, requestOptions);
+}
+
+/**
+ * Shared JSON response helper
+ */
+function sendJson(res: http.ServerResponse, status: number, payload: unknown): void {
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(payload));
+}
+
+/**
+ * Shared error response helper
+ */
+function sendErrorResponse(
+    res: http.ServerResponse,
+    status: number,
+    error: unknown,
+    type: string,
+    code: string
+): void {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    sendJson(res, status, {
+        error: {
+            message: errorMessage,
+            type,
+            code
+        }
+    });
 }
 
 /** * Read request body as string

@@ -11,6 +11,12 @@ import {
     handleFileEdit,
     handleFileRead,
     handleFileAdd,
+    handleOllamaVersion,
+    handleOllamaTags,
+    handleOllamaPs,
+    handleOllamaShow,
+    handleOllamaGenerate,
+    handleOllamaChat,
     getAvailableModelFamilies
 } from './routes';
 
@@ -130,7 +136,7 @@ function startServer(): void {
     server = http.createServer(async (req: http.IncomingMessage, res: http.ServerResponse) => {
         // Enable CORS
         res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
         if (req.method === 'OPTIONS') {
@@ -159,6 +165,18 @@ function startServer(): void {
             await handleFileEdit(req, res);
         } else if (req.method === 'POST' && req.url === '/v1/workspace/files/read') {
             await handleFileRead(req, res);
+        } else if (req.method === 'GET' && req.url === '/api/version') {
+            handleOllamaVersion(req, res);
+        } else if (req.method === 'GET' && req.url === '/api/tags') {
+            await handleOllamaTags(req, res);
+        } else if (req.method === 'GET' && req.url === '/api/ps') {
+            await handleOllamaPs(req, res);
+        } else if (req.method === 'POST' && req.url === '/api/show') {
+            await handleOllamaShow(req, res);
+        } else if (req.method === 'POST' && req.url === '/api/generate') {
+            await handleOllamaGenerate(req, res);
+        } else if (req.method === 'POST' && req.url === '/api/chat') {
+            await handleOllamaChat(req, res);
         } else {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Not found' }));

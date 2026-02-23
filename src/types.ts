@@ -93,8 +93,25 @@ export interface FileReadRequest {
     endLine?: number;
 }
 
-export interface FileReadRequest {
-    filePath: string;
-    startLine?: number;
-    endLine?: number;
+export interface OllamaGenerateRequest {
+    model?: string;
+    prompt: string;
+    stream?: boolean;
+}
+
+export interface OllamaChatMessage {
+    role: string;
+    content: string;
+}
+
+export interface OllamaChatRequest {
+    model?: string;
+    messages: OllamaChatMessage[];
+    stream?: boolean;
+}
+
+export interface OllamaShowRequest {
+    model?: string;
+    name?: string;
+    verbose?: boolean;
 }
