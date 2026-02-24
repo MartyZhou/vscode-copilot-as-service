@@ -85,6 +85,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "test": "node -r dotenv/config --test tests/integration.test.mjs",
     "pack": "vsce package",
     "publish": "vsce publish",
     "watch": "tsc -watch -p ./",
@@ -96,6 +97,7 @@
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
     "eslint": "^8.56.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "dotenv": "^16.0.3"
   }
 }

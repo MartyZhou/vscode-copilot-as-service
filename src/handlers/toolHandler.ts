@@ -113,6 +113,36 @@ export async function invokeTool(
     for (const part of result.content) {
         if (part instanceof vscode.LanguageModelTextPart) {
             resultParts.push(part.value);
+            continue;
+        }
+
+        const genericPart = part as { value?: unknown; text?: unknown; content?: unknown; toString?: () => string };
+        if (typeof genericPart.value === 'string' && genericPart.value.length > 0) {
+            resultParts.push(genericPart.value);
+            continue;
+        }
+
+        if (typeof genericPart.text === 'string' && genericPart.text.length > 0) {
+            resultParts.push(genericPart.text);
+            continue;
+        }
+
+        if (typeof genericPart.content === 'string' && genericPart.content.length > 0) {
+            resultParts.push(genericPart.content);
+            continue;
+        }
+
+        if (typeof genericPart.toString === 'function') {
+            const stringified = genericPart.toString();
+            if (stringified && stringified !== '[object Object]') {
+                resultParts.push(stringified);
+                continue;
+            }
+        }
+
+        const jsonFallback = JSON.stringify(part);
+        if (jsonFallback && jsonFallback !== '{}') {
+            resultParts.push(jsonFallback);
         }
     }
 

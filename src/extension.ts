@@ -5,20 +5,12 @@ import {
     handleModels,
     handleToolsList,
     handleToolInvoke,
-    handleFileOpen,
-    handleWorkspaceSearch,
     handleHealth,
-    handleFileEdit,
-    handleFileRead,
-    handleFileAdd,
-    handleOllamaVersion,
-    handleOllamaTags,
-    handleOllamaPs,
-    handleOllamaShow,
-    handleOllamaGenerate,
-    handleOllamaChat,
     getAvailableModelFamilies
 } from './routes';
+import { RouteRegistry } from './server/routeRegistry';
+import { WorkspacePlugin } from './plugins/workspacePlugin';
+import { OllamaPlugin } from './plugins/ollamaPlugin';
 
 let server: http.Server | undefined;
 let statusBarItem: vscode.StatusBarItem;
@@ -132,6 +124,20 @@ function startServer(): void {
 
     const config = vscode.workspace.getConfiguration('copilotAsService');
     const port = config.get<number>('port', 8765);
+    const routeRegistry = new RouteRegistry();
+
+    routeRegistry.registerRoutes([
+        { method: 'POST', path: '/v1/chat/completions', handler: handleChatCompletions },
+        { method: 'GET', path: '/v1/models', handler: handleModels },
+        { method: 'GET', path: '/health', handler: handleHealth },
+        { method: 'GET', path: '/v1/tools', handler: handleToolsList },
+        { method: 'POST', path: '/v1/tools/invoke', handler: handleToolInvoke }
+    ]);
+
+    const routePlugins = [new WorkspacePlugin(), new OllamaPlugin()];
+    for (const plugin of routePlugins) {
+        plugin.registerRoutes(routeRegistry);
+    }
 
     server = http.createServer(async (req: http.IncomingMessage, res: http.ServerResponse) => {
         // Enable CORS
@@ -145,39 +151,8 @@ function startServer(): void {
             return;
         }
 
-        if (req.method === 'POST' && req.url === '/v1/chat/completions') {
-            await handleChatCompletions(req, res);
-        } else if (req.method === 'GET' && req.url === '/v1/models') {
-            await handleModels(req, res);
-        } else if (req.method === 'GET' && req.url === '/health') {
-            handleHealth(req, res);
-        } else if (req.method === 'GET' && req.url === '/v1/tools') {
-            await handleToolsList(req, res);
-        } else if (req.method === 'POST' && req.url === '/v1/tools/invoke') {
-            await handleToolInvoke(req, res);
-        } else if (req.method === 'POST' && req.url === '/v1/workspace/files/open') {
-            await handleFileOpen(req, res);
-        } else if (req.method === 'POST' && req.url === '/v1/workspace/files/add') {
-            await handleFileAdd(req, res);
-        } else if (req.method === 'POST' && req.url === '/v1/workspace/files/search') {
-            await handleWorkspaceSearch(req, res);
-        } else if (req.method === 'POST' && req.url === '/v1/workspace/files/edit') {
-            await handleFileEdit(req, res);
-        } else if (req.method === 'POST' && req.url === '/v1/workspace/files/read') {
-            await handleFileRead(req, res);
-        } else if (req.method === 'GET' && req.url === '/api/version') {
-            handleOllamaVersion(req, res);
-        } else if (req.method === 'GET' && req.url === '/api/tags') {
-            await handleOllamaTags(req, res);
-        } else if (req.method === 'GET' && req.url === '/api/ps') {
-            await handleOllamaPs(req, res);
-        } else if (req.method === 'POST' && req.url === '/api/show') {
-            await handleOllamaShow(req, res);
-        } else if (req.method === 'POST' && req.url === '/api/generate') {
-            await handleOllamaGenerate(req, res);
-        } else if (req.method === 'POST' && req.url === '/api/chat') {
-            await handleOllamaChat(req, res);
-        } else {
+        const handled = await routeRegistry.dispatch(req, res);
+        if (!handled) {
             res.writeHead(404, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Not found' }));
         }
